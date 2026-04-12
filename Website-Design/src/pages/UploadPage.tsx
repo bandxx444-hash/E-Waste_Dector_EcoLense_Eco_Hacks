@@ -42,7 +42,8 @@ const UploadPage = () => {
     try {
       const formData = new FormData();
       files.forEach(f => formData.append("files", f));
-      const res = await fetch("/api/identify", { method: "POST", body: formData });
+      const apiBase = import.meta.env.VITE_API_URL ?? "";
+      const res = await fetch(`${apiBase}/api/identify`, { method: "POST", body: formData });
       if (!res.ok) throw new Error("Identification failed");
       const diag = await res.json();
       setDiagnostics(diag);
