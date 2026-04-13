@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import BackgroundOrbs from "@/components/BackgroundOrbs";
 import ProgressBar from "@/components/ProgressBar";
+import { ScanVisionOverlay } from "@/components/ScanVisionOverlay";
 import { useScan } from "@/context/ScanContext";
 
 const UploadPage = () => {
@@ -100,7 +101,71 @@ const UploadPage = () => {
           <p className="text-subtle text-sm max-w-md mx-auto">Show us your device from multiple angles for the most accurate valuation.</p>
         </motion.div>
 
-        {/* Tabs */}
+        {/* ── Loading state — shown instead of upload zone ── */}
+        {loading && (
+          <motion.div
+            key="loading-state"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="text-center py-12"
+          >
+            {detected ? (
+              /* Detection result */
+              <motion.div
+                initial={{ opacity: 0, scale: 0.94 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 22 }}
+                className="rounded-2xl border border-primary/25 px-8 py-8 mx-auto max-w-sm"
+                style={{ background: "linear-gradient(135deg, hsl(153 70% 38% / 0.07), hsl(43 75% 50% / 0.04))" }}
+              >
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
+                  style={{ background: "linear-gradient(135deg, hsl(153 70% 38%), hsl(153 70% 28%))" }}>
+                  <Check className="w-6 h-6 text-white" />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-[3px] text-primary mb-2">Device Detected</p>
+                <p className="text-xl font-display font-bold text-foreground mb-4">{detected.name}</p>
+                <div className="flex items-center gap-3">
+                  <div className="h-1.5 rounded-full overflow-hidden flex-1" style={{ background: "hsl(150 15% 88%)" }}>
+                    <motion.div className="h-full rounded-full"
+                      style={{ background: "linear-gradient(90deg, hsl(153 70% 38%), hsl(43 75% 50%))" }}
+                      initial={{ width: 0 }} animate={{ width: `${detected.confidence}%` }}
+                      transition={{ duration: 0.7, ease: "easeOut" }} />
+                  </div>
+                  <span className="text-sm font-bold gradient-text shrink-0">{detected.confidence}% match</span>
+                </div>
+              </motion.div>
+            ) : (
+              /* Scanning phases */
+              <div className="mx-auto max-w-xs">
+                <div className="w-12 h-12 rounded-full border-2 border-primary/20 flex items-center justify-center mx-auto mb-6 relative">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <div className="absolute inset-0 rounded-full animate-ping opacity-20"
+                    style={{ background: "hsl(153 70% 38%)" }} />
+                </div>
+                <motion.p
+                  key={scanPhase}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.25 }}
+                  className="text-sm font-semibold text-foreground mb-4"
+                >
+                  {scanPhases[scanPhase]}
+                </motion.p>
+                <div className="h-1 rounded-full overflow-hidden" style={{ background: "hsl(150 15% 88%)" }}>
+                  <motion.div className="h-full rounded-full"
+                    style={{ background: "linear-gradient(90deg, hsl(153 70% 38%), hsl(43 75% 50%))" }}
+                    animate={{ width: `${Math.round(((scanPhase + 1) / scanPhases.length) * 85)}%` }}
+                    transition={{ duration: 0.5, ease: "easeOut" }} />
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Tabs + Upload zone — hidden while loading */}
+        {!loading && <>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -155,18 +220,25 @@ const UploadPage = () => {
                 <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoSelect} />
               </div>
               {files.length > 0 && (
-                <div className="grid grid-cols-4 gap-3 mt-4">
-                  {files.map((f, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm"
-                    >
-                      <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-full object-cover" />
-                    </motion.div>
-                  ))}
+                <div className="mt-4 space-y-3">
+                  {/* First image: AI Vision scan overlay */}
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                    <ScanVisionOverlay imageUrl={URL.createObjectURL(files[0])} />
+                  </motion.div>
+                  {/* Additional images: small thumbnails */}
+                  {files.length > 1 && (
+                    <div className="grid grid-cols-5 gap-2">
+                      {files.slice(1).map((f, i) => (
+                        <motion.div key={i}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
+                          <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-full object-cover" />
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -194,19 +266,16 @@ const UploadPage = () => {
             </div>
           )}
         </motion.div>
+        </>}
 
-        {error && (
+        {error && !loading && (
           <div className="mt-4 rounded-xl px-4 py-3 text-sm text-destructive border border-destructive/20 bg-destructive/5">
             {error}
           </div>
         )}
 
-        {hasMedia && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-6"
-          >
+        {hasMedia && !loading && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-6">
             <div className="flex items-center gap-2 rounded-xl px-4 py-3 mb-4 gradient-border"
               style={{ background: "linear-gradient(135deg, hsl(153 70% 38% / 0.08), hsl(43 75% 50% / 0.04))" }}>
               <Check className="w-4 h-4 text-primary" />
@@ -214,46 +283,10 @@ const UploadPage = () => {
                 {mediaCount} {tab === "photos" ? "image(s)" : "video"} ready · AI will auto-identify your device
               </span>
             </div>
-            {loading && detected ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="rounded-2xl border border-primary/30 px-6 py-5 text-center mb-2"
-                style={{ background: "linear-gradient(135deg, hsl(153 70% 38% / 0.08), hsl(43 75% 50% / 0.05))" }}
-              >
-                <Check className="w-7 h-7 text-primary mx-auto mb-2" />
-                <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Device Detected</p>
-                <p className="text-lg font-display font-bold text-foreground mb-1">{detected.name}</p>
-                <div className="flex items-center justify-center gap-2">
-                  <div className="h-1.5 rounded-full overflow-hidden flex-1 max-w-[120px]" style={{ background: "hsl(150 15% 88%)" }}>
-                    <motion.div className="h-full rounded-full" style={{ background: "hsl(153 70% 38%)" }}
-                      initial={{ width: 0 }} animate={{ width: `${detected.confidence}%` }} transition={{ duration: 0.6 }} />
-                  </div>
-                  <span className="text-sm font-bold gradient-text">{detected.confidence}% Match</span>
-                </div>
-              </motion.div>
-            ) : loading ? (
-              <div className="rounded-2xl border border-border px-5 py-4 mb-2" style={{ background: "hsl(40 30% 97%)" }}>
-                <div className="flex items-center gap-3">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-foreground">{scanPhases[scanPhase]}</p>
-                    <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "hsl(150 15% 88%)" }}>
-                      <motion.div className="h-full rounded-full" style={{ background: "hsl(153 70% 38%)" }}
-                        animate={{ width: [`${(scanPhase / scanPhases.length) * 80}%`, `${((scanPhase + 1) / scanPhases.length) * 90}%`] }}
-                        transition={{ duration: 0.6 }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {!loading && (
-              <button onClick={handleContinue}
-                className="w-full py-3.5 rounded-xl font-bold text-[15px] text-primary-foreground shadow-cta transition-all duration-300 hover:-translate-y-0.5 gradient-btn relative overflow-hidden flex items-center justify-center gap-2">
-                <span className="relative z-10">Continue — AI will auto-fill details →</span>
-              </button>
-            )}
+            <button onClick={handleContinue}
+              className="w-full py-3.5 rounded-xl font-bold text-[15px] text-primary-foreground shadow-cta transition-all duration-300 hover:-translate-y-0.5 gradient-btn relative overflow-hidden flex items-center justify-center gap-2">
+              <span className="relative z-10">Continue — AI will auto-fill details →</span>
+            </button>
           </motion.div>
         )}
       </main>

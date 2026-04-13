@@ -7,6 +7,7 @@ import json
 import base64
 import io
 import uuid
+import re
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -345,7 +346,7 @@ async def listing(result: str = Form(...)):
     # Format as a clean plain-text listing
     title = raw.get("title", r.get("deviceName", ""))
     cond = raw.get("condition_grade", f"Used - {r.get('condition', 'Good')}")
-    desc = raw.get("description", "")
+    desc = re.sub(r"<[^>]+>", "", raw.get("description", "")).strip()
     price = raw.get("suggested_price", r.get("adjustedPrice", 0))
     shipping = raw.get("shipping_recommendation", "")
     tags = raw.get("keywords", [])

@@ -3,6 +3,7 @@ import { Trash2, DollarSign, Store, Recycle, Inbox, Leaf, Users, TrendingUp } fr
 import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import BackgroundOrbs from "@/components/BackgroundOrbs";
+import GlobalTicker from "@/components/GlobalTicker";
 import { useScan, type ScanResult } from "@/context/ScanContext";
 
 const condBadge: Record<string, string> = {
@@ -32,10 +33,12 @@ const DashboardPage = () => {
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-2xl md:text-[40px] font-display font-bold mb-8"
+          className="text-2xl md:text-[40px] font-display font-bold mb-4"
         >
           My Dashboard
         </motion.h1>
+
+        <GlobalTicker />
 
         {scanHistory.length === 0 ? (
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="text-center py-12">

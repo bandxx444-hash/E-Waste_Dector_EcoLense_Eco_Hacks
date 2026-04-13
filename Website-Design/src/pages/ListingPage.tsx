@@ -180,6 +180,39 @@ function EbayListingPreview({ listing, photos, deviceName }: {
   );
 }
 
+function ShareCertificateCard({ onShare, result }: { onShare: () => void; result: NonNullable<ReturnType<typeof import("@/context/ScanContext").useScan>["result"]> }) {
+  const [copied, setCopied] = useState(false);
+  const trees = Math.max(1, Math.round(result.co2Saved / 48));
+  const miles = Math.max(1, Math.round(result.co2Saved / 0.89));
+  const handle = () => { onShare(); setCopied(true); setTimeout(() => setCopied(false), 2500); };
+  return (
+    <div className="glass-card-glow mb-5">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[2px] text-primary mb-0.5">EcoLens Certificate</p>
+          <h3 className="text-sm font-bold text-foreground">Share Your Impact</h3>
+        </div>
+        <Leaf className="w-5 h-5 text-primary" />
+      </div>
+      <div className="rounded-xl p-3 mb-3 text-xs text-body leading-relaxed"
+        style={{ background: "hsl(150 20% 95%)", fontFamily: "monospace", whiteSpace: "pre-line" }}>
+        {`Recovered $${result.estimatedValue} from my ${result.deviceName} with EcoLens AI.\n${result.co2Saved} lbs of CO2 kept out of landfills\n= ${trees} trees absorbing carbon  |  ${miles.toLocaleString()} miles not driven\n\n#EcoLens #Sustainability #CircularEconomy`}
+      </div>
+      <div className="flex gap-2">
+        <button onClick={handle}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border border-border hover:bg-secondary transition-colors">
+          {copied ? <><Check className="w-3 h-3 text-primary" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy for LinkedIn</>}
+        </button>
+        <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Recovered $${result.estimatedValue} from my ${result.deviceName} with EcoLens AI. ${result.co2Saved} lbs CO2 saved = ${trees} trees worth of carbon absorption.\n\n#EcoLens #Sustainability`)}`}
+          target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border border-[#1DA1F2]/30 text-[#1DA1F2] bg-[#1DA1F2]/8 hover:bg-[#1DA1F2]/15 transition-colors">
+          Share on X/Twitter
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function RecyclingMap() {
   const [status, setStatus] = useState<"idle" | "loading" | "granted" | "denied">("idle");
   const [mapSrc, setMapSrc] = useState<string | null>(null);
@@ -302,6 +335,14 @@ const ListingPage = () => {
     navigator.clipboard.writeText(text);
   };
 
+  const handleShareCertificate = () => {
+    if (!result) return;
+    const trees = Math.max(1, Math.round(result.co2Saved / 48));
+    const miles = Math.max(1, Math.round(result.co2Saved / 0.89));
+    const text = `Just recovered $${result.estimatedValue} from my old ${result.deviceName} using EcoLens AI.\n\nKept ${result.co2Saved} lbs of CO2 out of landfills — equivalent to ${trees} trees absorbing carbon for a year, or ${miles.toLocaleString()} miles not driven.\n\nTry it free → ecolens.app\n\n#EcoLens #Sustainability #CircularEconomy #EWaste`;
+    navigator.clipboard.writeText(text);
+  };
+
   return (
     <div className="min-h-screen relative">
       <BackgroundOrbs />
@@ -391,6 +432,9 @@ const ListingPage = () => {
                 <ExternalLink className="w-5 h-5" /> Post on eBay →
               </a>
               <p className="text-xs text-subtle mb-4">Copy the fields above and paste them into eBay's listing form.</p>
+
+              {/* Shareable certificate */}
+              <ShareCertificateCard onShare={handleShareCertificate} result={result} />
             </>
           )}
 

@@ -85,6 +85,37 @@ const ResultsPage = () => {
           <p className="text-xs text-faintest mt-1">${result.valueLow} – ${result.valueHigh} range · {result.comparables.length} listings</p>
         </motion.div>
 
+        {/* Arbitrage comparison table */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="glass-card mb-4">
+          <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+            <span className="gradient-text">Market Comparison</span>
+            <span className="text-[10px] text-subtle font-normal uppercase tracking-wide">· Where to sell</span>
+          </h3>
+          <div className="space-y-3">
+            {[
+              { platform: "eBay (Private Sale)", value: result.estimatedValue, pct: 100, badge: "Best Value", badgeCls: "bg-primary/10 text-primary", barColor: "hsl(153 70% 38%)" },
+              { platform: "BackMarket (Instant Cash)", value: Math.round(result.estimatedValue * 0.79), pct: 79, badge: "Fastest", badgeCls: "bg-accent/10 text-accent", barColor: "hsl(43 75% 50%)" },
+              { platform: result.brand?.toLowerCase().includes("apple") ? "Apple Trade‑In (Credit)" : "Amazon Trade‑In (Credit)", value: Math.round(result.estimatedValue * 0.56), pct: 56, badge: "Store Credit", badgeCls: "bg-secondary text-subtle", barColor: "hsl(150 10% 60%)" },
+            ].map(r => (
+              <div key={r.platform}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold text-foreground">{r.platform}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-bold gradient-text">${r.value.toLocaleString()}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${r.badgeCls}`}>{r.badge}</span>
+                  </div>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden bg-secondary">
+                  <motion.div className="h-full rounded-full"
+                    style={{ background: r.barColor }}
+                    initial={{ width: 0 }} animate={{ width: `${r.pct}%` }}
+                    transition={{ duration: 0.9, delay: 0.3 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card mb-4">
           <span className="inline-block px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider mb-2"
             style={{ background: "linear-gradient(135deg, hsl(153 70% 38% / 0.12), hsl(43 75% 50% / 0.08))", color: "hsl(153 70% 48%)" }}>
@@ -125,6 +156,18 @@ const ResultsPage = () => {
               <span className="text-xs text-primary font-medium">
                 Selling keeps <span className="font-bold">{result.co2Saved} lbs of CO₂</span> out of landfills
               </span>
+            </div>
+            {/* CO₂ equivalents */}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {[
+                { val: Math.max(1, Math.round(result.co2Saved / 48)), unit: "trees/yr absorbed" },
+                { val: Math.max(1, Math.round(result.co2Saved / 0.89)), unit: "miles not driven" },
+                { val: Math.max(1, Math.round(result.co2Saved * 38)), unit: "LED bulb hours" },
+              ].map(e => (
+                <span key={e.unit} className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold bg-primary/6 border border-primary/12 text-primary">
+                  <span className="font-bold">{e.val.toLocaleString()}</span> {e.unit}
+                </span>
+              ))}
             </div>
             <motion.div
               key={saleSpeed.label}
