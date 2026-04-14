@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Sparkles, DollarSign, Store, Recycle, Leaf, ExternalLink, Zap, Clock, TrendingDown } from "lucide-react";
 import { motion } from "framer-motion";
@@ -38,7 +38,26 @@ const ResultsPage = () => {
   const [decision, setDecision] = useState<Decision | "ai">(result?.recommendation || "sell");
   const [price, setPrice] = useState(result?.adjustedPrice || 0);
   const [co2Pulse, setCo2Pulse] = useState(false);
+  const [displayPrice, setDisplayPrice] = useState(0);
+  const [showComparison, setShowComparison] = useState(false);
   if (!result) { navigate("/"); return null; }
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    const target = result.estimatedValue;
+    const dur = 1400;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / dur, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplayPrice(Math.round(eased * target));
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [result.estimatedValue]);
+
+  const tradeInValue = Math.round(result.estimatedValue * 0.56);
+  const tradeInSavings = result.estimatedValue - tradeInValue;
 
   const handlePriceChange = (val: number) => {
     setPrice(val);
@@ -81,8 +100,43 @@ const ResultsPage = () => {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card-glow text-center mb-4">
           <p className="text-xs text-subtle mb-1">Market Valuation</p>
-          <p className="text-4xl font-display font-bold gradient-text">${result.estimatedValue}</p>
+          <p className="text-4xl font-display font-bold gradient-text">${displayPrice.toLocaleString()}</p>
           <p className="text-xs text-faintest mt-1">${result.valueLow} – ${result.valueHigh} range · {result.comparables.length} listings</p>
+
+          {/* Trade-in comparison toggle */}
+          <div className="flex items-center justify-center gap-2 mt-3">
+            <span className="text-xs text-subtle">vs. trade-in value</span>
+            <button
+              onClick={() => setShowComparison(c => !c)}
+              className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+              style={{ background: showComparison ? "hsl(153 70% 38%)" : "hsl(150 15% 80%)" }}>
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${showComparison ? "translate-x-4" : "translate-x-0.5"}`} />
+            </button>
+          </div>
+          {showComparison && (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              className="mt-4 rounded-xl overflow-hidden border border-border">
+              <div className="grid grid-cols-2">
+                <div className="text-center py-4 px-3 border-r border-border"
+                  style={{ background: "hsl(153 70% 38% / 0.05)" }}>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-primary mb-1">EcoLens Resale</p>
+                  <p className="text-2xl font-display font-bold gradient-text">${result.estimatedValue.toLocaleString()}</p>
+                </div>
+                <div className="text-center py-4 px-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-subtle mb-1">Typical Trade-In</p>
+                  <p className="text-2xl font-display font-bold text-subtle">${tradeInValue.toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="text-center py-3 border-t border-border"
+                style={{ background: "hsl(43 75% 50% / 0.05)" }}>
+                <p className="text-[10px] text-subtle uppercase tracking-wide">You earn</p>
+                <p className="text-xl font-display font-bold" style={{ color: "hsl(43 75% 40%)" }}>
+                  +${tradeInSavings.toLocaleString()} more
+                </p>
+                <p className="text-[10px] text-subtle">by listing directly on eBay</p>
+              </div>
+            </motion.div>
+          )}
         </motion.div>
 
         {/* Arbitrage comparison table */}

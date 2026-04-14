@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import confetti from "canvas-confetti";
-import { ChevronLeft, ChevronRight, ExternalLink, RotateCcw, DollarSign, Recycle, Leaf, Loader2, Copy, Check, Tag, Star, Truck, ShieldCheck, MapPin, Navigation } from "lucide-react";
+import { motion } from "framer-motion";
+import { ChevronLeft, ChevronRight, ExternalLink, RotateCcw, DollarSign, Recycle, Leaf, Loader2, Copy, Check, Tag, Star, Truck, ShieldCheck, MapPin, Navigation, Sparkles, X } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import BackgroundOrbs from "@/components/BackgroundOrbs";
 import ProgressBar from "@/components/ProgressBar";
@@ -180,36 +181,126 @@ function EbayListingPreview({ listing, photos, deviceName }: {
   );
 }
 
-function ShareCertificateCard({ onShare, result }: { onShare: () => void; result: NonNullable<ReturnType<typeof import("@/context/ScanContext").useScan>["result"]> }) {
+function EcoPassportCard({ onShare, result }: { onShare: () => void; result: NonNullable<ReturnType<typeof import("@/context/ScanContext").useScan>["result"]> }) {
   const [copied, setCopied] = useState(false);
   const trees = Math.max(1, Math.round(result.co2Saved / 48));
   const miles = Math.max(1, Math.round(result.co2Saved / 0.89));
   const handle = () => { onShare(); setCopied(true); setTimeout(() => setCopied(false), 2500); };
+  const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Just saved ${result.co2Saved} lbs of CO₂ by selling my ${result.deviceName} with EcoLens AI — = ${trees} trees breathing for a year.\n\nRecovered $${result.estimatedValue} from my old tech.\n\n#EcoLens #Sustainability #CircularEconomy`)}`;
   return (
-    <div className="glass-card-glow mb-5">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[2px] text-primary mb-0.5">EcoLens Certificate</p>
-          <h3 className="text-sm font-bold text-foreground">Share Your Impact</h3>
+    <div className="mb-5 rounded-2xl overflow-hidden shadow-lg"
+      style={{ background: "linear-gradient(145deg, hsl(153 60% 20%), hsl(160 55% 14%))" }}>
+      {/* Badge + headline */}
+      <div className="px-6 pt-6 pb-5 text-center">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3"
+          style={{ background: "hsl(153 70% 38% / 0.2)", border: "1px solid hsl(153 70% 52% / 0.3)" }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L4 6v6c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V6L12 2z"
+              fill="hsl(153 70% 52% / 0.18)" stroke="hsl(153 70% 65%)" strokeWidth="1.5" />
+            <path d="M9 12l2 2 4-4" stroke="hsl(153 70% 70%)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </div>
-        <Leaf className="w-5 h-5 text-primary" />
+        <p className="text-[9px] font-black uppercase tracking-[3px] mb-2" style={{ color: "hsl(153 70% 55%)" }}>Eco-Passport</p>
+        <h2 className="text-2xl font-display font-bold text-white leading-tight">
+          You just saved {result.co2Saved} lbs of CO₂
+        </h2>
+        <p className="text-sm mt-2" style={{ color: "hsl(153 60% 65%)" }}>
+          = {trees} trees breathing for a year
+        </p>
       </div>
-      <div className="rounded-xl p-3 mb-3 text-xs text-body leading-relaxed"
-        style={{ background: "hsl(150 20% 95%)", fontFamily: "monospace", whiteSpace: "pre-line" }}>
-        {`Recovered $${result.estimatedValue} from my ${result.deviceName} with EcoLens AI.\n${result.co2Saved} lbs of CO2 kept out of landfills\n= ${trees} trees absorbing carbon  |  ${miles.toLocaleString()} miles not driven\n\n#EcoLens #Sustainability #CircularEconomy`}
+      {/* Stats row */}
+      <div className="grid grid-cols-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        {[
+          { label: "CO₂ Saved", val: `${result.co2Saved} lbs` },
+          { label: "Value Recovered", val: `$${result.estimatedValue}` },
+          { label: "Miles Offset", val: miles.toLocaleString() },
+        ].map((s, i) => (
+          <div key={s.label} className="text-center py-3"
+            style={{ borderRight: i < 2 ? "1px solid rgba(255,255,255,0.08)" : undefined }}>
+            <p className="text-base font-display font-bold text-white">{s.val}</p>
+            <p className="text-[9px] uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.35)" }}>{s.label}</p>
+          </div>
+        ))}
       </div>
-      <div className="flex gap-2">
+      {/* Share buttons */}
+      <div className="flex gap-2 p-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
         <button onClick={handle}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border border-border hover:bg-secondary transition-colors">
-          {copied ? <><Check className="w-3 h-3 text-primary" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy for LinkedIn</>}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-colors"
+          style={{ background: "hsl(153 70% 38% / 0.25)", color: "hsl(153 70% 72%)" }}>
+          {copied ? <><Check className="w-3 h-3" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy for LinkedIn</>}
         </button>
-        <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Recovered $${result.estimatedValue} from my ${result.deviceName} with EcoLens AI. ${result.co2Saved} lbs CO2 saved = ${trees} trees worth of carbon absorption.\n\n#EcoLens #Sustainability`)}`}
-          target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border border-[#1DA1F2]/30 text-[#1DA1F2] bg-[#1DA1F2]/8 hover:bg-[#1DA1F2]/15 transition-colors">
+        <a href={tweetUrl} target="_blank" rel="noopener noreferrer"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-colors"
+          style={{ background: "rgba(29,161,242,0.18)", color: "rgba(29,161,242,0.9)" }}>
           Share on X/Twitter
         </a>
       </div>
     </div>
+  );
+}
+
+function PolishPhotosButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(true)}
+        className="w-full mb-3 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-dashed border-border hover:border-primary/40 text-subtle hover:text-foreground transition-all duration-200">
+        <Sparkles className="w-4 h-4" />
+        Polish My Photos — AI Background Removal
+        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide"
+          style={{ background: "hsl(43 75% 50% / 0.15)", color: "hsl(43 75% 40%)" }}>Pro</span>
+      </button>
+      {open && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ background: "rgba(0,0,0,0.6)" }}
+          onClick={() => setOpen(false)}>
+          <motion.div initial={{ y: 80 }} animate={{ y: 0 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="w-full max-w-lg rounded-t-2xl p-6 pb-8"
+            style={{ background: "hsl(40 30% 98%)" }}
+            onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-border mx-auto mb-5" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center"
+                  style={{ background: "linear-gradient(135deg, hsl(153 70% 38% / 0.12), hsl(43 75% 50% / 0.08))" }}>
+                  <Sparkles className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-foreground text-sm">AI Photo Polish</h3>
+                  <p className="text-xs text-subtle">Studio shots from your phone</p>
+                </div>
+              </div>
+              <button onClick={() => setOpen(false)} className="p-2 rounded-lg hover:bg-secondary transition-colors">
+                <X className="w-4 h-4 text-subtle" />
+              </button>
+            </div>
+            <div className="space-y-2.5 mb-5">
+              {[
+                "Removes cluttered backgrounds in one click",
+                "Places your device on a clean white studio backdrop",
+                "Adds a natural drop shadow for a professional look",
+                "Increases listing views by up to 3× on eBay",
+              ].map(f => (
+                <div key={f} className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <p className="text-sm text-body">{f}</p>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-xl px-4 py-3 mb-4 text-center"
+              style={{ background: "linear-gradient(135deg, hsl(153 70% 38% / 0.07), hsl(43 75% 50% / 0.05))" }}>
+              <p className="text-xs font-bold text-primary uppercase tracking-wide mb-0.5">Coming in EcoLens Pro</p>
+              <p className="text-xs text-subtle">Powered by Segment Anything Model (Meta AI)</p>
+            </div>
+            <button onClick={() => setOpen(false)}
+              className="w-full py-3 rounded-xl font-bold text-sm border border-border hover:bg-secondary transition-colors">
+              Close
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
+    </>
   );
 }
 
@@ -357,9 +448,24 @@ const ListingPage = () => {
               <h1 className="text-2xl md:text-3xl font-display font-bold mb-2">Your eBay Listing</h1>
               <p className="text-sm text-subtle mb-6">Preview your listing below, then copy the details to post on eBay.</p>
               {listingLoading ? (
-                <div className="glass-card flex items-center justify-center gap-2 py-12 mb-4">
-                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                  <span className="text-sm text-subtle">Generating your listing…</span>
+                <div className="space-y-3 mb-4 text-left">
+                  <div className="rounded-2xl overflow-hidden border border-border" style={{ background: "#fafafa" }}>
+                    <div className="shimmer-block h-48 rounded-none" style={{ borderRadius: 0 }} />
+                    <div className="px-4 py-3 space-y-2">
+                      <div className="shimmer-block h-4 w-3/4 rounded-lg" />
+                      <div className="shimmer-block h-3 w-1/2 rounded-lg" />
+                    </div>
+                  </div>
+                  <div className="shimmer-block h-14 rounded-xl" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="shimmer-block h-14 rounded-xl" />
+                    <div className="shimmer-block h-14 rounded-xl" />
+                  </div>
+                  <div className="shimmer-block h-28 rounded-xl" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="shimmer-block h-14 rounded-xl" />
+                    <div className="shimmer-block h-14 rounded-xl" />
+                  </div>
                 </div>
               ) : listing ? (
                 <>
@@ -433,8 +539,11 @@ const ListingPage = () => {
               </a>
               <p className="text-xs text-subtle mb-4">Copy the fields above and paste them into eBay's listing form.</p>
 
-              {/* Shareable certificate */}
-              <ShareCertificateCard onShare={handleShareCertificate} result={result} />
+              {/* Polish photos placeholder */}
+              <PolishPhotosButton />
+
+              {/* Eco-Passport certificate */}
+              <EcoPassportCard onShare={handleShareCertificate} result={result} />
             </>
           )}
 
