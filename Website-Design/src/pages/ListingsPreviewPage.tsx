@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, ExternalLink, Package } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,6 +23,16 @@ const ListingsPreviewPage = () => {
   const [idx, setIdx] = useState(0);
   const [direction, setDirection] = useState(0);
   if (!result) { navigate("/"); return null; }
+
+  // Preload all proxy images so they're cached before the user swipes
+  useEffect(() => {
+    result.comparables.forEach((c) => {
+      if (c.imageUrl) {
+        const img = new Image();
+        img.src = `/api/image-proxy?url=${encodeURIComponent(c.imageUrl)}`;
+      }
+    });
+  }, [result.comparables]);
 
   const listing = result.comparables[idx];
   const total = result.comparables.length;
@@ -80,7 +90,7 @@ const ListingsPreviewPage = () => {
                 {listing.imageUrl ? (
                   <a href={listing.ebayUrl} target="_blank" rel="noopener noreferrer"
                     className="w-full h-full flex items-center justify-center group relative">
-                    <img src={listing.imageUrl} alt={listing.title} className="max-h-full object-contain transition-opacity group-hover:opacity-80" />
+                    <img src={`/api/image-proxy?url=${encodeURIComponent(listing.imageUrl)}`} alt={listing.title} className="max-h-full object-contain transition-opacity group-hover:opacity-80" />
                     <div className="absolute inset-0 flex items-end justify-center pb-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <span className="bg-white/90 text-primary text-[11px] font-semibold px-3 py-1 rounded-full flex items-center gap-1 shadow">
                         <ExternalLink className="w-3 h-3" /> View on eBay

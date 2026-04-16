@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import BackgroundOrbs from "@/components/BackgroundOrbs";
 import GlobalTicker from "@/components/GlobalTicker";
+import EcoPassportCard from "@/components/EcoPassportCard";
 import { useScan, type ScanResult } from "@/context/ScanContext";
 
 const condBadge: Record<string, string> = {
@@ -85,6 +86,20 @@ const DashboardPage = () => {
                   <div className="text-xs text-subtle mt-1">{m.label}</div>
                 </div>
               ))}
+            </motion.div>
+
+            {/* Eco Passport for most recent scan */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="mb-8"
+            >
+              <EcoPassportCard
+                deviceName={scanHistory[scanHistory.length - 1].deviceName}
+                co2Saved={scanHistory.reduce((s, r) => s + r.co2Saved, 0)}
+                estimatedValue={scanHistory.reduce((s, r) => s + r.estimatedValue, 0)}
+              />
             </motion.div>
 
             <div className="space-y-3 mb-8">

@@ -217,6 +217,36 @@ const LoadingPage = () => {
               </motion.p>
             </AnimatePresence>
           </motion.div>
+
+          {/* Live Spec Sheet Reveal */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+            className="glass-card text-left mt-4"
+          >
+            <span className="text-[11px] font-bold uppercase tracking-[2px] gradient-text mb-3 block">Live Spec Sheet</span>
+            <div className="space-y-0">
+              {[
+                { label: "Brand", value: diagnostics.brand || "Detecting…" },
+                { label: "Model", value: diagnostics.productName || "Detecting…" },
+                { label: "Year", value: diagnostics.yearOfPurchase ? String(diagnostics.yearOfPurchase) : "—" },
+                { label: "Screen", value: diagnostics.screenCondition || "Detecting…" },
+                { label: "Powers On", value: diagnostics.powersOn === null ? "Detecting…" : diagnostics.powersOn ? "Yes" : "No" },
+              ].map((spec, i) => (
+                <motion.div
+                  key={spec.label}
+                  initial={{ opacity: 0, filter: "blur(10px)" }}
+                  animate={{ opacity: 1, filter: "blur(0px)" }}
+                  transition={{ delay: 1.0 + i * 0.45, duration: 0.55, ease: "easeOut" }}
+                  className="flex items-center justify-between py-2 border-b border-border last:border-0"
+                >
+                  <span className="text-xs text-subtle font-medium">{spec.label}</span>
+                  <span className="text-xs font-bold text-foreground">{spec.value}</span>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
         </motion.div>
       </main>
     </div>

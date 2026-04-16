@@ -26,6 +26,7 @@ from prompts import ANALYSIS_PROMPT, LISTING_PROMPT
 
 app = FastAPI()
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -33,23 +34,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── eBay Finding API ───────────────────────────────────────────────────────────
+# ── eBay OAuth — auto-fetch Application Access Token ──────────────────────────
 
 EBAY_APP_ID = os.environ.get("EBAY_APP_ID", "")
-EBAY_OAUTH_TOKEN = os.environ.get("EBAY_OAUTH_TOKEN", "")
+EBAY_CLIENT_SECRET = os.environ.get("EBAY_CLIENT_SECRET", "")
 
-async def ebay_sold_listings(query: str, limit: int = 3) -> list[dict]:
-    """Fetch active eBay listings via the Browse API using OAuth token."""
-    if not EBAY_OAUTH_TOKEN:
+_ebay_token: str = ""
+_ebay_token_expiry: float = 0.0
+
+async def get_ebay_token() -> str:
+    """Return a valid eBay Application Access Token, refreshing if expired."""
+    global _ebay_token, _ebay_token_expiry
+    import time
+    if _ebay_token and time.time() < _ebay_token_expiry - 60:
+        return _ebay_token
+    if not EBAY_APP_ID or not EBAY_CLIENT_SECRET:
+        return ""
+    credentials = base64.b64encode(f"{EBAY_APP_ID}:{EBAY_CLIENT_SECRET}".encode()).decode()
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(
+                "https://api.ebay.com/identity/v1/oauth2/token",
+                headers={
+                    "Authorization": f"Basic {credentials}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data={
+                    "grant_type": "client_credentials",
+                    "scope": "https://api.ebay.com/oauth/api_scope",
+                },
+            )
+        data = r.json()
+        if r.status_code == 200:
+            _ebay_token = data["access_token"]
+            _ebay_token_expiry = time.time() + data.get("expires_in", 7200)
+            print(f"eBay token refreshed, expires in {data.get('expires_in', 7200)}s")
+            return _ebay_token
+        else:
+            print(f"eBay token error: {data}")
+            return ""
+    except Exception as e:
+        print(f"eBay token fetch error: {e}")
+        return ""
+
+async def ebay_sold_listings(query: str, limit: int = 6) -> list[dict]:
+    """Fetch active eBay listings via the Browse API."""
+    token = await get_ebay_token()
+    if not token:
         return []
     url = "https://api.ebay.com/buy/browse/v1/item_summary/search"
-    params = {
-        "q": query,
-        "limit": limit,
-        "filter": "conditionIds:{3000}",
-    }
+    params = {"q": query, "limit": limit}
     headers = {
-        "Authorization": f"Bearer {EBAY_OAUTH_TOKEN}",
+        "Authorization": f"Bearer {token}",
         "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
     }
     try:
@@ -64,7 +100,8 @@ async def ebay_sold_listings(query: str, limit: int = 3) -> list[dict]:
         results = []
         for item in items[:limit]:
             price_val = float(item.get("price", {}).get("value", 0))
-            image_url = item.get("image", {}).get("imageUrl", "").replace("s-l225", "s-l500").replace("s-l140", "s-l500")
+            image_url = item.get("image", {}).get("imageUrl", "")
+            image_url = image_url.replace("s-l225", "s-l500").replace("s-l140", "s-l500")
             results.append({
                 "title": item.get("title", ""),
                 "soldPrice": price_val,
@@ -74,6 +111,7 @@ async def ebay_sold_listings(query: str, limit: int = 3) -> list[dict]:
                 "imageUrl": image_url,
                 "ebayUrl": item.get("itemWebUrl", "https://www.ebay.com"),
             })
+        print(f"eBay Browse API returned {len(results)} listings")
         return results
     except Exception as e:
         print(f"eBay Browse API error: {e}")
@@ -85,7 +123,7 @@ async def ebay_sold_listings(query: str, limit: int = 3) -> list[dict]:
 @app.get("/api/image-proxy")
 async def image_proxy(url: str):
     """Proxy eBay images to avoid hotlink blocking."""
-    if not url.startswith("https://i.ebayimg.com"):
+    if not ("ebayimg.com" in url):
         return Response(status_code=403)
     async with httpx.AsyncClient() as client:
         r = await client.get(url, headers={"Referer": "https://www.ebay.com/"}, follow_redirects=True)
@@ -259,7 +297,7 @@ async def analyze(
     # Fetch real eBay sold listings in parallel with Claude analysis
     ebay_query = f"{brand} {name} {model}".strip()
     client = anthropic.Anthropic()
-    ebay_task = ebay_sold_listings(ebay_query, limit=3)
+    ebay_task = ebay_sold_listings(ebay_query, limit=6)
 
     resp = client.messages.create(
         model="claude-sonnet-4-5",

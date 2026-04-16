@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Sparkles, DollarSign, Store, Recycle, Leaf, ExternalLink, Zap, Clock, TrendingDown } from "lucide-react";
+import { ArrowLeft, Sparkles, DollarSign, Store, Recycle, Leaf, ExternalLink, Zap, Clock, TrendingDown, ShieldCheck, ScanSearch } from "lucide-react";
 import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import BackgroundOrbs from "@/components/BackgroundOrbs";
@@ -31,6 +31,167 @@ const decisionLabels: { value: Decision; icon: React.ReactNode; label: string }[
   { value: "trade-in", icon: <Store className="w-4 h-4" />, label: "Trade it in" },
   { value: "recycle", icon: <Recycle className="w-4 h-4" />, label: "Recycle it" },
 ];
+
+function PriceScatter({ comparables, userValue, valueLow, valueHigh }: {
+  comparables: { soldPrice: number; title: string; condition: string; ebayUrl: string; imageUrl?: string }[];
+  userValue: number;
+  valueLow: number;
+  valueHigh: number;
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  if (comparables.length === 0) return null;
+
+  const pad = (valueHigh - valueLow) * 0.2 || 50;
+  const lo = Math.min(valueLow, ...comparables.map(c => c.soldPrice)) - pad;
+  const hi = Math.max(valueHigh, ...comparables.map(c => c.soldPrice)) + pad;
+
+  // 0 = top, 1 = bottom in CSS percentage space
+  const toYPct = (p: number) => (1 - (p - lo) / (hi - lo)) * 100;
+  const toXPct = (i: number, n: number) => 8 + (i / Math.max(n - 1, 1)) * 84;
+
+  const matchRate = (soldPrice: number) =>
+    Math.max(58, Math.round(100 - (Math.abs(soldPrice - userValue) / Math.max(hi - lo, 1)) * 65));
+
+  const gridPrices = [lo + (hi - lo) * 0.25, lo + (hi - lo) * 0.5, lo + (hi - lo) * 0.75];
+  const userY = toYPct(userValue);
+
+  return (
+    <div className="relative select-none" style={{ height: 148 }}>
+      {/* Grid + reference line */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
+        {gridPrices.map((p, i) => (
+          <line key={i} x1="9%" y1={`${toYPct(p)}%`} x2="100%" y2={`${toYPct(p)}%`}
+            stroke="hsl(150 15% 88%)" strokeWidth="0.8" />
+        ))}
+        <line x1="9%" y1={`${userY}%`} x2="100%" y2={`${userY}%`}
+          stroke="hsl(153 70% 38%)" strokeDasharray="4 3" strokeWidth="1" opacity="0.4" />
+      </svg>
+
+      {/* Y axis labels */}
+      {gridPrices.map((p, i) => (
+        <span key={i} className="absolute text-[9px] text-subtle pointer-events-none"
+          style={{ top: `${toYPct(p)}%`, left: 0, transform: "translateY(-50%)" }}>
+          ${Math.round(p)}
+        </span>
+      ))}
+
+      {/* Comparable dots */}
+      {comparables.map((c, i) => {
+        const x = toXPct(i, comparables.length);
+        const y = toYPct(c.soldPrice);
+        const rate = matchRate(c.soldPrice);
+        const isHovered = hoveredIdx === i;
+        // flip tooltip above/below depending on vertical position
+        const tipAbove = y > 55;
+        return (
+          <div key={i} className="absolute" style={{ left: `${x}%`, top: `${y}%`, transform: "translate(-50%, -50%)", zIndex: isHovered ? 30 : 10 }}>
+            <a
+              href={c.ebayUrl || "https://www.ebay.com"}
+              target="_blank"
+              rel="noopener noreferrer"
+              onMouseEnter={() => setHoveredIdx(i)}
+              onMouseLeave={() => setHoveredIdx(null)}
+              className="block rounded-full transition-all duration-150 cursor-pointer"
+              style={{
+                width: 14, height: 14,
+                background: isHovered ? "hsl(150 10% 45%)" : "hsl(150 10% 68%)",
+                border: "2px solid white",
+                boxShadow: isHovered ? "0 0 0 3px hsl(150 10% 68% / 0.3)" : "none",
+                transform: isHovered ? "scale(1.35)" : "scale(1)",
+              }}
+            />
+            {isHovered && (
+              <div
+                className="absolute left-1/2 -translate-x-1/2 w-56 rounded-xl shadow-xl pointer-events-none overflow-hidden"
+                style={{
+                  [tipAbove ? "bottom" : "top"]: "calc(100% + 8px)",
+                  background: "hsl(40 30% 97%)",
+                  border: "1px solid hsl(150 15% 83%)",
+                  zIndex: 50,
+                }}
+              >
+                {c.imageUrl && (
+                  <div className="w-full h-28 bg-[#f0f0f0] flex items-center justify-center overflow-hidden">
+                    <img src={`/api/image-proxy?url=${encodeURIComponent(c.imageUrl)}`} alt={c.title}
+                      className="max-h-full max-w-full object-contain p-2" />
+                  </div>
+                )}
+                <div style={{ padding: "10px 12px" }}>
+                  <p className="text-[10px] font-bold text-foreground leading-snug line-clamp-2 mb-2">{c.title}</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-bold" style={{ color: "hsl(153 70% 32%)" }}>${c.soldPrice.toLocaleString()}</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+                      style={{ background: "hsl(153 70% 38% / 0.1)", color: "hsl(153 70% 38%)" }}>
+                      {rate}% match
+                    </span>
+                  </div>
+                  <p className="text-[9px]" style={{ color: "hsl(150 10% 55%)" }}>{c.condition} · Click to view on eBay</p>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* User device dot — animates smoothly when price slider changes */}
+      <div className="absolute" style={{ left: "50%", top: `${userY}%`, transform: "translate(-50%, -50%)", zIndex: 20, transition: "top 0.35s cubic-bezier(0.4, 0, 0.2, 1)" }}>
+        <div className="rounded-full flex items-center justify-center"
+          style={{ width: 20, height: 20, background: "hsl(153 70% 38%)", boxShadow: "0 0 10px hsl(153 70% 38% / 0.45)", border: "2.5px solid white" }}>
+          <div className="rounded-full bg-white" style={{ width: 6, height: 6 }} />
+        </div>
+        <span className="absolute whitespace-nowrap text-[8px] font-bold pointer-events-none"
+          style={{ top: "calc(100% + 4px)", left: "50%", transform: "translateX(-50%)", color: "hsl(153 70% 35%)" }}>
+          Your Device
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function TrustBadges({ result }: { result: { co2Saved: number; condition: string; estimatedValue: number; valueHigh: number } }) {
+  const pctOfPeak = Math.round((result.estimatedValue / result.valueHigh) * 100);
+  const badges = [
+    {
+      icon: <ShieldCheck className="w-5 h-5" style={{ color: "hsl(153 70% 48%)" }} />,
+      label: "Price Guarantee",
+      value: `Within ${100 - pctOfPeak + 5}% of Market Peak`,
+    },
+    {
+      icon: <Leaf className="w-5 h-5" style={{ color: "hsl(153 70% 48%)" }} />,
+      label: "Verified Carbon Offset",
+      value: `${result.co2Saved} lbs CO\u2082 saved`,
+    },
+    {
+      icon: <ScanSearch className="w-5 h-5" style={{ color: "hsl(153 70% 48%)" }} />,
+      label: "AI Graded",
+      value: `Grade: ${result.condition}`,
+    },
+  ];
+  return (
+    <div className="grid grid-cols-3 gap-2 mb-4">
+      {badges.map(b => (
+        <motion.div
+          key={b.label}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="rounded-xl p-3 text-center flex flex-col items-center gap-1.5"
+          style={{
+            background: "linear-gradient(145deg, hsl(153 70% 38% / 0.07), hsl(43 75% 50% / 0.04))",
+            border: "1px solid hsl(153 70% 38% / 0.18)",
+          }}
+        >
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: "hsl(153 70% 38% / 0.1)" }}>
+            {b.icon}
+          </div>
+          <p className="text-[9px] font-bold uppercase tracking-wide text-subtle">{b.label}</p>
+          <p className="text-[10px] font-semibold text-foreground leading-tight">{b.value}</p>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
 
 const ResultsPage = () => {
   const navigate = useNavigate();
@@ -170,6 +331,27 @@ const ResultsPage = () => {
           </div>
         </motion.div>
 
+        {/* Market Heatmap */}
+        {result.comparables.length > 1 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }} className="glass-card mb-4">
+            <h3 className="text-sm font-bold text-foreground mb-1 flex items-center gap-2">
+              <span className="gradient-text">Price Scatter</span>
+              <span className="text-[10px] text-subtle font-normal uppercase tracking-wide">· Recent sales vs your device</span>
+            </h3>
+            <p className="text-[10px] text-faintest mb-3">Gray dots = comparable eBay sales. Green dot = your device's valuation.</p>
+            <PriceScatter
+              comparables={result.comparables}
+              userValue={price}
+              valueLow={result.valueLow}
+              valueHigh={result.valueHigh}
+            />
+            <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-[hsl(150,10%,68%)]" /><span className="text-[10px] text-subtle">Comparable sales</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full" style={{ background: "hsl(153 70% 38%)" }} /><span className="text-[10px] text-subtle">Your device</span></div>
+            </div>
+          </motion.div>
+        )}
+
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card mb-4">
           <span className="inline-block px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider mb-2"
             style={{ background: "linear-gradient(135deg, hsl(153 70% 38% / 0.12), hsl(43 75% 50% / 0.08))", color: "hsl(153 70% 48%)" }}>
@@ -177,6 +359,9 @@ const ResultsPage = () => {
           </span>
           <p className="text-sm text-body">{result.recommendationReason}</p>
         </motion.div>
+
+        {/* Trust Badges */}
+        <TrustBadges result={result} />
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card mb-4">
           <h3 className="text-sm font-bold text-foreground mb-3">Your Decision</h3>
@@ -222,6 +407,25 @@ const ResultsPage = () => {
                   <span className="font-bold">{e.val.toLocaleString()}</span> {e.unit}
                 </span>
               ))}
+            </div>
+            {/* Environmental weight visual */}
+            <div className="mt-3 rounded-xl px-3 py-2.5 flex items-center gap-3"
+              style={{ background: "hsl(153 70% 38% / 0.05)", border: "1px solid hsl(153 70% 38% / 0.12)" }}>
+              <div className="flex gap-0.5 items-end shrink-0">
+                {Array.from({ length: Math.min(5, Math.max(1, Math.round(result.co2Saved / 80))) }).map((_, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ scaleY: 0 }}
+                    animate={{ scaleY: 1 }}
+                    transition={{ delay: 0.2 + i * 0.12, duration: 0.4, ease: "easeOut" }}
+                    className="w-1.5 rounded-sm origin-bottom"
+                    style={{ height: 8 + i * 4, background: `hsl(153 ${60 + i * 4}% ${48 - i * 4}%)` }}
+                  />
+                ))}
+              </div>
+              <p className="text-[11px] text-primary leading-snug">
+                Equivalent to taking <span className="font-bold">{Math.max(1, Math.round(result.co2Saved / 48))} car{Math.round(result.co2Saved / 48) !== 1 ? "s" : ""}</span> off the road for a week
+              </p>
             </div>
             <motion.div
               key={saleSpeed.label}
