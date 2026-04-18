@@ -16,8 +16,8 @@ const Navbar = () => {
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4 }}
-      className="sticky top-0 z-50 h-[68px] shadow-nav flex items-center px-6 backdrop-blur-xl"
-      style={{ background: "linear-gradient(90deg, hsl(0 0% 100% / 0.95), hsl(40 30% 97% / 0.95))", borderBottom: "1px solid hsl(150 15% 85%)" }}
+      className="sticky top-0 z-50 h-[68px] shadow-nav flex items-center px-6"
+      style={{ background: "hsl(40 30% 97%)", borderBottom: "1px solid hsl(150 15% 85%)" }}
     >
       <div className="container mx-auto flex items-center justify-between">
         {/* Logo */}

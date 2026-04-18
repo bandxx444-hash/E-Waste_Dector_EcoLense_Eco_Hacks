@@ -61,10 +61,20 @@
 @layer base {
   * {
     @apply border-border;
+    /* Only transition GPU-composited properties by default */
+    transition-property: transform, opacity;
+  }
+  html {
+    scroll-behavior: smooth;
+    text-rendering: optimizeSpeed;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   body {
     @apply bg-background text-body;
     font-family: 'DM Sans', system-ui, sans-serif;
+    /* Prevent paint thrashing from scrolling */
+    overscroll-behavior: none;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', system-ui, sans-serif;
@@ -92,11 +102,9 @@
     @apply rounded-2xl p-8 border shadow-card;
     background: hsl(0 0% 100%);
     border-color: hsl(150 15% 85%);
-    transition: border-color 0.4s, box-shadow 0.4s, transform 0.4s;
+    transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .glass-card:hover {
-    border-color: hsl(153 70% 38% / 0.35);
-    box-shadow: 0 12px 48px rgba(15, 138, 95, 0.1), 0 0 0 1px rgba(15, 138, 95, 0.06);
     transform: translateY(-3px);
   }
 
@@ -210,8 +218,8 @@
 }
 
 @keyframes scanLine {
-  0% { top: 0; }
-  100% { top: 100%; }
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100%); }
 }
 
 @keyframes particleFloat {
@@ -284,10 +292,9 @@ body::before {
   100% { opacity: 0; transform: translateY(-700px); }
 }
 
-/* Reduce hover lift on glass-card for smoother feel */
+/* Override any stale hover rules */
 .glass-card:hover {
-  transform: translateY(-2px) !important;
-  transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s !important;
+  transform: translateY(-3px) !important;
 }
 
 /* will-change hint for animated orbs */

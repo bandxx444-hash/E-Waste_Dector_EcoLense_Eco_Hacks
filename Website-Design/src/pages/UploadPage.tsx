@@ -15,6 +15,7 @@ const UploadPage = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [bestIdx, setBestIdx] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [extractingFrames, setExtractingFrames] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -23,16 +24,55 @@ const UploadPage = () => {
   const [scanPhase, setScanPhase] = useState(0);
   const scanPhases = ["Preprocessing image…", "Detecting device type…", "Identifying model…", "Calculating confidence…"];
 
+  // Score an image file by sharpness — returns higher for sharper, well-exposed images
+  const scoreImage = (file: File): Promise<number> =>
+    new Promise((resolve) => {
+      const img = document.createElement("img");
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const scale = Math.min(1, 400 / Math.max(img.naturalWidth, img.naturalHeight));
+        canvas.width = img.naturalWidth * scale;
+        canvas.height = img.naturalHeight * scale;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let lumSum = 0, edgeSum = 0, count = 0;
+        for (let i = 0; i < data.length - 4; i += 16) {
+          const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          const lumR = 0.299 * data[i + 4] + 0.587 * data[i + 5] + 0.114 * data[i + 6];
+          lumSum += lum; edgeSum += (lum - lumR) ** 2; count++;
+        }
+        const brightness = lumSum / count;
+        const brightnessOk = brightness > 40 && brightness < 215 ? 1 : 0.1;
+        URL.revokeObjectURL(img.src);
+        resolve((edgeSum / count) * brightnessOk);
+      };
+      img.onerror = () => resolve(0);
+      img.src = URL.createObjectURL(file);
+    });
+
+  const pickBestImage = useCallback(async (newFiles: File[]) => {
+    if (newFiles.length <= 1) { setBestIdx(0); return; }
+    const scores = await Promise.all(newFiles.map(scoreImage));
+    setBestIdx(scores.indexOf(Math.max(...scores)));
+  }, []);
+
   const handlePhotoDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
-    setFiles([...files, ...dropped]);
-  }, [files, setFiles]);
+    const merged = [...files, ...dropped];
+    setFiles(merged);
+    pickBestImage(merged);
+  }, [files, setFiles, pickBestImage]);
 
   const handlePhotoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) setFiles([...files, ...Array.from(e.target.files)]);
-  }, [files, setFiles]);
+    if (e.target.files) {
+      const merged = [...files, ...Array.from(e.target.files)];
+      setFiles(merged);
+      pickBestImage(merged);
+    }
+  }, [files, setFiles, pickBestImage]);
 
   const extractVideoFrames = (file: File): Promise<File[]> => {
     return new Promise((resolve) => {
@@ -151,10 +191,7 @@ const UploadPage = () => {
       const diag = await res.json();
       clearInterval(phaseInterval);
       setScanPhase(scanPhases.length - 1);
-      // Calculate confidence from aiConfidence fields
-      const allFields = Object.values(diag.aiConfidence || {});
-      const confidentCount = allFields.filter(Boolean).length;
-      const confidencePct = allFields.length > 0 ? Math.round((confidentCount / allFields.length) * 100) : 92;
+      const confidencePct = diag.overallConfidence ?? 75;
       setDetected({ name: diag.productName || diag.brand || "Your Device", confidence: confidencePct });
       setDiagnostics(diag);
       // Show detection result briefly, then navigate
@@ -317,17 +354,25 @@ const UploadPage = () => {
                 <div className="mt-4 space-y-3">
                   {/* First image: AI Vision scan overlay */}
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                    <ScanVisionOverlay imageUrl={URL.createObjectURL(files[0])} />
+                    <ScanVisionOverlay
+                      imageUrl={URL.createObjectURL(files[bestIdx])}
+                      onRemove={() => {
+                        const next = files.filter((_, i) => i !== bestIdx);
+                        setFiles(next);
+                        pickBestImage(next);
+                      }}
+                    />
                   </motion.div>
-                  {/* Additional images: small thumbnails */}
+                  {/* Other images: small thumbnails, click to promote to main */}
                   {files.length > 1 && (
                     <div className="grid grid-cols-5 gap-2">
-                      {files.slice(1).map((f, i) => (
+                      {files.map((f, i) => i === bestIdx ? null : (
                         <motion.div key={i}
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: i * 0.05 }}
-                          className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
+                          onClick={() => setBestIdx(i)}
+                          className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
                           <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-full object-cover" />
                         </motion.div>
                       ))}

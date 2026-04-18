@@ -154,7 +154,7 @@ async def image_proxy(url: str):
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 IDENTIFY_PROMPT = """
-You are an expert electronics identifier. Study every photo carefully and extract as much information as possible.
+You are an expert electronics identifier. Study every photo carefully. Accuracy matters more than confidence — it is better to say "likely" than to guess "certain" and be wrong.
 
 Return ONLY valid JSON — no markdown, no explanation:
 {
@@ -166,16 +166,22 @@ Return ONLY valid JSON — no markdown, no explanation:
   "screen_condition": {"value": null, "confidence": "unknown"}
 }
 
-Rules:
-- device_name: full product name (e.g. "MacBook Pro 14-inch", "Samsung Galaxy S21 Ultra", "iPad Air 5th Gen"). Use design cues — port layout, keyboard shape, logo placement, display bezels, color — to narrow down the exact generation even if no text is visible.
-- brand: manufacturer (e.g. "Apple", "Samsung", "Dell", "Sony", "Lenovo"). Look for logos on lid, bezel, or chassis. Apple logo, Dell logo, ThinkPad branding etc are usually visible.
-- model: model number if any label, sticker, or engraving is visible (e.g. "A2442", "SM-G991B"). If no text visible, infer the most likely model identifier from device shape, port configuration, and generation cues — mark as "likely".
-- year: release year as a number. Use the device generation, design language, port types (USB-C vs USB-A, MagSafe version, notch vs no notch), and chip generation to estimate. Always provide your best estimate — do not leave null unless truly impossible.
-- powers_on: "Yes" if any screen activity, light, or indicator is visible. "No" if device appears off or damaged. If uncertain, make your best inference from the screen state.
-- screen_condition: "Flawless" (no visible damage), "Minor Scratches" (light surface marks), "Cracked" (visible cracks), or "Screen is off/broken". Inspect every photo carefully.
-- confidence: "certain" (you can clearly see it), "likely" (strong inference from visual cues), "unknown" (genuinely cannot determine)
-- Always provide a best-guess value rather than null — only use null when there is truly no basis for an estimate.
-- Do NOT use placeholder or example text — only values you actually observe or confidently infer.
+Field rules:
+- device_name: exact product name including screen size if you can determine it. IMPORTANT — screen size cues:
+  * MacBook Pro 14 vs 16: the 14-inch has a noticeably smaller chassis. The 16-inch is significantly wider and taller. Without a clear size reference object in the frame, use "likely" not "certain" for screen size.
+  * iPhone: count camera lenses, look for Dynamic Island vs notch vs no notch, check button layout.
+  * iPad: look at bezel width, home button vs Face ID, Smart Connector placement.
+  * If you truly cannot determine screen size, omit it from the name and mark confidence "likely".
+- brand: manufacturer name — look for logo on lid/chassis/bezel. Mark "certain" only if logo is clearly visible.
+- model: model number from any visible label, sticker, or engraving. If not visible, infer from visual cues and mark "likely". Do not guess blindly.
+- year: estimate from design generation, port types (USB-A vs USB-C, MagSafe 1/2/3, Mini DisplayPort etc), keyboard layout, and notch/island/bezel style. Provide best estimate with "likely" if inferring.
+- powers_on: "Yes" if screen shows any activity or indicator light is on. "No" if clearly off or broken. "unknown" if ambiguous.
+- screen_condition: "Flawless", "Minor Scratches", "Cracked", or "Screen is off/broken". Look carefully across all photos.
+
+Confidence rules (be honest — this affects how much the user trusts the result):
+- "certain": you can clearly see direct evidence in the photo
+- "likely": strong inference from visible design cues, but not 100% certain
+- "unknown": genuinely cannot determine from the photos provided
 """
 
 CARBON_SAVINGS = {
@@ -268,7 +274,14 @@ async def identify(files: list[UploadFile] = File(...)):
     def val(field):
         return raw.get(field, {}).get("value") or ""
 
-    def confident(field):
+    # Weight confidence: certain=1.0, likely=0.6, unknown=0.0
+    CONF_WEIGHT = {"certain": 1.0, "likely": 0.6, "unknown": 0.0}
+
+    def conf_weight(field):
+        return CONF_WEIGHT.get(raw.get(field, {}).get("confidence", "unknown"), 0.0)
+
+    def is_confident(field):
+        # "unknown" triggers NEEDS YOUR INPUT — certain and likely are both fine
         return raw.get(field, {}).get("confidence") in ("certain", "likely")
 
     powers_on_raw = val("powers_on")
@@ -276,20 +289,29 @@ async def identify(files: list[UploadFile] = File(...)):
         False if str(powers_on_raw).lower() == "no" else None
     )
 
+    # Overall confidence = weighted average of all fields, capped at 96%
+    weights = [conf_weight(f) for f in ("device_name", "brand", "model", "year", "powers_on", "screen_condition")]
+    overall_confidence = round(min(96, (sum(weights) / len(weights)) * 100))
+
+    # Only keep model if it looks like a real model ID (short, no long sentences)
+    model_raw = val("model") or ""
+    model_clean = model_raw if (len(model_raw) < 30 and "(" not in model_raw and len(model_raw.split()) <= 3) else ""
+
     return {
         "productName": val("device_name") or "",
         "brand": val("brand") or "",
-        "modelNumber": val("model") or "",
+        "modelNumber": model_clean,
         "yearOfPurchase": raw.get("year", {}).get("value") or datetime.now().year,
         "powersOn": powers_on,
         "screenCondition": val("screen_condition") or "",
+        "overallConfidence": overall_confidence,
         "aiConfidence": {
-            "productName": confident("device_name"),
-            "brand": confident("brand"),
-            "modelNumber": confident("model"),
-            "yearOfPurchase": confident("year"),
-            "powersOn": confident("powers_on"),
-            "screenCondition": confident("screen_condition"),
+            "productName": is_confident("device_name"),
+            "brand": is_confident("brand"),
+            "modelNumber": is_confident("model"),
+            "yearOfPurchase": is_confident("year"),
+            "powersOn": is_confident("powers_on"),
+            "screenCondition": is_confident("screen_condition"),
         },
     }
 

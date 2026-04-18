@@ -244,9 +244,9 @@ const LoadingPage = () => {
               ].map((spec, i) => (
                 <motion.div
                   key={spec.label}
-                  initial={{ opacity: 0, filter: "blur(10px)" }}
-                  animate={{ opacity: 1, filter: "blur(0px)" }}
-                  transition={{ delay: 1.0 + i * 0.45, duration: 0.55, ease: "easeOut" }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.0 + i * 0.45, duration: 0.4, ease: "easeOut" }}
                   className="flex items-center justify-between py-2 border-b border-border last:border-0"
                 >
                   <span className="text-xs text-subtle font-medium">{spec.label}</span>
